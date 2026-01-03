@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pong 1972 - Mobile Fixed</title>
+    <title>Pong 1972 - Dynamic Borders</title>
     <style>
         * { touch-action: none; box-sizing: border-box; }
         body { 
@@ -16,17 +16,34 @@
             overflow: hidden; 
             font-family: 'Courier New', monospace; 
         }
+
+        /* --- CONTENEDOR DINÁMICO --- */
         #game-container { 
             position: relative; 
             border: 2px solid #fff; 
+            background: #000;
+            transition: all 0.5s ease; /* Animación suave al estirarse */
+        }
+
+        /* Estado cuando el menú está abierto (Estirado) */
+        .fullscreen-menu {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            aspect-ratio: auto !important;
+            border-width: 10px !important; /* Bordes más gruesos en menú */
+        }
+
+        /* Estado cuando el juego está activo (Caja original) */
+        .game-mode {
             width: 98vw; 
             max-width: 800px; 
             aspect-ratio: 2 / 1; 
-            background: #000;
+            border-width: 2px !important;
         }
+
         canvas { display: block; width: 100%; height: 100%; }
         
-        /* --- MENÚS CORREGIDOS --- */
         .overlay { 
             position: absolute; 
             top: 0; left: 0; width: 100%; height: 100%; 
@@ -38,49 +55,39 @@
             z-index: 20; 
             color: #fff;
             padding: 20px;
-            overflow-y: auto; /* Permite scroll si la pantalla es muy pequeña */
         }
         
-        h1 { 
-            font-size: clamp(30px, 10vw, 80px); /* Tamaño fluido con mínimo y máximo */
-            margin: 0 0 20px 0; 
-            text-align: center;
-            line-height: 1;
-        }
-        h2 { 
-            font-size: clamp(18px, 5vw, 30px); 
-            margin-bottom: 15px; 
-        }
+        h1 { font-size: clamp(40px, 12vw, 90px); margin: 0 0 30px 0; text-align: center; }
+        h2 { font-size: clamp(20px, 6vw, 35px); margin-bottom: 20px; }
 
         .button-group {
             display: flex;
             flex-direction: column;
             width: 100%;
             align-items: center;
-            gap: 10px; /* Espacio uniforme entre botones */
+            gap: 15px;
         }
 
         button { 
             background: transparent; 
             border: 2px solid #fff; 
             color: #fff; 
-            padding: clamp(8px, 2vh, 15px); 
-            font-size: clamp(14px, 4vw, 18px); 
+            padding: 15px; 
+            font-size: clamp(16px, 5vw, 22px); 
             font-family: inherit; 
             cursor: pointer; 
             width: 90%; 
-            max-width: 280px;
-            transition: 0.2s;
+            max-width: 320px;
         }
         
         button:active { background: #fff; color: #000; }
         .hidden { display: none !important; }
-        #fps-display { position: absolute; top: 5px; left: 5px; color: rgba(255,255,255,0.4); font-size: 10px; z-index: 5; }
+        #fps-display { position: absolute; top: 15px; left: 15px; color: rgba(255,255,255,0.4); font-size: 12px; z-index: 5; }
     </style>
 </head>
 <body>
 
-<div id="game-container">
+<div id="game-container" class="fullscreen-menu">
     <div id="fps-display">FPS: 0</div>
     
     <div id="menu" class="overlay">
@@ -95,7 +102,6 @@
         <div class="button-group">
             <button onclick="prepDifficulty()">1 JUGADOR (VS IA)</button>
             <button onclick="startTwoPlayers()">2 JUGADORES (LOCAL)</button>
-            <button onclick="location.reload()" style="border-color: #555; color: #aaa;">VOLVER</button>
         </div>
     </div>
 
@@ -117,6 +123,7 @@
 </div>
 
 <script>
+    const container = document.getElementById("game-container");
     const canvas = document.getElementById("pong");
     const ctx = canvas.getContext("2d");
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -183,6 +190,10 @@
     function startTwoPlayers() { isPvP = true; ballBaseSpeed = 4.5; ballMaxSpeed = 10; startGame(false); }
 
     function startGame(vsAI, diff) {
+        // CAMBIO DE BORDES: De pantalla completa a modo juego
+        container.classList.remove("fullscreen-menu");
+        container.classList.add("game-mode");
+
         document.querySelectorAll(".overlay").forEach(m => m.classList.add("hidden"));
         gameRunning = true;
         if (vsAI) {
@@ -231,6 +242,10 @@
     function checkEnd(p1Wins) {
         if (p1.score >= 10 || p2.score >= 10) {
             gameRunning = false;
+            // Al terminar, volvemos a poner bordes de pantalla completa
+            container.classList.remove("game-mode");
+            container.classList.add("fullscreen-menu");
+
             document.getElementById("game-over").classList.remove("hidden");
             document.getElementById("result-text").innerText = isPvP ? (p1Wins ? "GANA J1" : "GANA J2") : (p1Wins ? "¡GANASTE!" : "PERDISTE");
             if (p1Wins) [523, 659, 783, 1046].forEach((n, i) => beep(n, i * 0.1, 0.3));
