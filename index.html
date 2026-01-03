@@ -3,43 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pong 1972 - 60 FPS & Calibrated Physics</title>
+    <title>Pong 1972 - Mobile Fixed</title>
     <style>
         * { touch-action: none; box-sizing: border-box; }
-        body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; font-family: 'Courier New', monospace; }
-        #game-container { position: relative; border: 2px solid #fff; width: 95vw; max-width: 800px; aspect-ratio: 2 / 1; }
-        canvas { background: #000; display: block; width: 100%; height: 100%; }
-        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.9); z-index: 10; color: #fff; }
-        h1 { font-size: 8vw; margin: 10px; }
-        button { background: transparent; border: 2px solid #fff; color: #fff; padding: 10px; font-size: 18px; font-family: inherit; cursor: pointer; margin: 5px; width: 80%; max-width: 300px; }
+        body { 
+            background: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: 'Courier New', monospace; 
+        }
+        #game-container { 
+            position: relative; 
+            border: 2px solid #fff; 
+            width: 98vw; 
+            max-width: 800px; 
+            aspect-ratio: 2 / 1; 
+            background: #000;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        /* --- MENÚS CORREGIDOS --- */
+        .overlay { 
+            position: absolute; 
+            top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            background: rgba(0, 0, 0, 0.95); 
+            z-index: 20; 
+            color: #fff;
+            padding: 20px;
+            overflow-y: auto; /* Permite scroll si la pantalla es muy pequeña */
+        }
+        
+        h1 { 
+            font-size: clamp(30px, 10vw, 80px); /* Tamaño fluido con mínimo y máximo */
+            margin: 0 0 20px 0; 
+            text-align: center;
+            line-height: 1;
+        }
+        h2 { 
+            font-size: clamp(18px, 5vw, 30px); 
+            margin-bottom: 15px; 
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            align-items: center;
+            gap: 10px; /* Espacio uniforme entre botones */
+        }
+
+        button { 
+            background: transparent; 
+            border: 2px solid #fff; 
+            color: #fff; 
+            padding: clamp(8px, 2vh, 15px); 
+            font-size: clamp(14px, 4vw, 18px); 
+            font-family: inherit; 
+            cursor: pointer; 
+            width: 90%; 
+            max-width: 280px;
+            transition: 0.2s;
+        }
+        
         button:active { background: #fff; color: #000; }
         .hidden { display: none !important; }
-        #fps { position: absolute; top: 5px; left: 5px; color: rgba(255,255,255,0.4); font-size: 12px; z-index: 5; }
+        #fps-display { position: absolute; top: 5px; left: 5px; color: rgba(255,255,255,0.4); font-size: 10px; z-index: 5; }
     </style>
 </head>
 <body>
 
 <div id="game-container">
-    <div id="fps">FPS: 0</div>
+    <div id="fps-display">FPS: 0</div>
+    
     <div id="menu" class="overlay">
         <h1>PONG</h1>
-        <button onclick="showMode()">JUGAR</button>
+        <div class="button-group">
+            <button onclick="showMode()">JUGAR</button>
+        </div>
     </div>
+
     <div id="mode-menu" class="overlay hidden">
         <h2>MODO DE JUEGO</h2>
-        <button onclick="prepDifficulty()">1 JUGADOR (VS IA)</button>
-        <button onclick="startTwoPlayers()">2 JUGADORES (LOCAL)</button>
+        <div class="button-group">
+            <button onclick="prepDifficulty()">1 JUGADOR (VS IA)</button>
+            <button onclick="startTwoPlayers()">2 JUGADORES (LOCAL)</button>
+            <button onclick="location.reload()" style="border-color: #555; color: #aaa;">VOLVER</button>
+        </div>
     </div>
+
     <div id="diff-menu" class="overlay hidden">
         <h2>DIFICULTAD IA</h2>
-        <button onclick="startGame(true, 'facil')">FÁCIL (Zen)</button>
-        <button onclick="startGame(true, 'normal')">NORMAL (Equilibrado)</button>
-        <button onclick="startGame(true, 'dificil')">DIFÍCIL (Rápido)</button>
+        <div class="button-group">
+            <button onclick="startGame(true, 'facil')">FÁCIL</button>
+            <button onclick="startGame(true, 'normal')">NORMAL</button>
+            <button onclick="startGame(true, 'dificil')">DIFÍCIL</button>
+        </div>
     </div>
+
     <div id="game-over" class="overlay hidden">
         <h1 id="result-text">¡GANASTE!</h1>
         <button onclick="location.reload()">REINTENTAR</button>
     </div>
+
     <canvas id="pong" width="800" height="400"></canvas>
 </div>
 
@@ -50,16 +123,14 @@
     
     let gameRunning = false;
     let isPvP = false;
-    let aiSpeed = 0.05; // Ajustado para 60 FPS
+    let aiSpeed = 0.05;
     let ballBaseSpeed = 3.5; 
     let ballMaxSpeed = 9; 
     
-    // Configuración 60 FPS
-    let fps = 0;
-    let frameCount = 0;
-    let lastFpsUpdate = 0;
     let lastFrameTime = 0;
     const fpsInterval = 1000 / 60;
+    let frameCount = 0;
+    let lastFpsUpdate = 0;
 
     const ball = { x: 400, y: 200, radius: 7, speed: 3.5, velocityX: 3.5, velocityY: 0 };
     const p1 = { x: 10, y: 155, score: 0, width: 12, height: 90 };
@@ -72,10 +143,11 @@
     function movePaddles(e) {
         if (!gameRunning) return;
         const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const touches = e.touches || [e];
         for (let t of touches) {
-            const relX = (t.clientX - rect.left) * (canvas.width / rect.width);
+            const relX = (t.clientX - rect.left) * scaleX;
             const relY = (t.clientY - rect.top) * scaleY;
             if (isPvP) {
                 if (relX < canvas.width / 2) p1.y = relY - p1.height / 2;
@@ -89,6 +161,7 @@
     canvas.addEventListener("touchmove", e => { movePaddles(e); e.preventDefault(); }, {passive: false});
 
     function beep(freq, dur, type='square') {
+        if (audioCtx.state === 'suspended') return;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = type;
@@ -99,15 +172,20 @@
         osc.start(); osc.stop(audioCtx.currentTime + dur);
     }
 
-    function showMode() { document.getElementById("menu").classList.add("hidden"); document.getElementById("mode-menu").classList.remove("hidden"); }
-    function prepDifficulty() { document.getElementById("mode-menu").classList.add("hidden"); document.getElementById("diff-menu").classList.remove("hidden"); }
+    function showMode() { 
+        document.getElementById("menu").classList.add("hidden"); 
+        document.getElementById("mode-menu").classList.remove("hidden"); 
+    }
+    function prepDifficulty() { 
+        document.getElementById("mode-menu").classList.add("hidden"); 
+        document.getElementById("diff-menu").classList.remove("hidden"); 
+    }
     function startTwoPlayers() { isPvP = true; ballBaseSpeed = 4.5; ballMaxSpeed = 10; startGame(false); }
 
     function startGame(vsAI, diff) {
         document.querySelectorAll(".overlay").forEach(m => m.classList.add("hidden"));
         gameRunning = true;
         if (vsAI) {
-            // Valores compensados para 60 FPS
             if (diff === 'facil') { ballBaseSpeed = 3.5; aiSpeed = 0.04; ballMaxSpeed = 7; }
             if (diff === 'normal') { ballBaseSpeed = 5; aiSpeed = 0.07; ballMaxSpeed = 11; }
             if (diff === 'dificil') { ballBaseSpeed = 7; aiSpeed = 0.12; ballMaxSpeed = 15; }
@@ -125,7 +203,6 @@
 
     function update() {
         if (!gameRunning) return;
-        // Velocidad de paletas ajustada a 60 FPS
         if (keys['KeyW']) p1.y -= 7; if (keys['KeyS']) p1.y += 7;
         if (isPvP) { if (keys['ArrowUp']) p2.y -= 7; if (keys['ArrowDown']) p2.y += 7; }
         else { p2.y += (ball.y - (p2.y + p2.height / 2)) * aiSpeed; }
@@ -141,10 +218,7 @@
             let cp = (ball.y - (p.y + p.height / 2)) / (p.height / 2);
             let angle = cp * Math.PI / 4;
             let dir = (ball.x < 400) ? 1 : -1;
-            
-            // Aceleración ajustada para 60 FPS (un poco más alta para compensar el limitador)
             if (ball.speed < ballMaxSpeed) ball.speed += 0.4; 
-            
             ball.velocityX = dir * ball.speed * Math.cos(angle);
             ball.velocityY = ball.speed * Math.sin(angle);
             beep(450, 0.1);
@@ -176,18 +250,13 @@
     function loop(currentTime) {
         requestAnimationFrame(loop);
         const deltaTime = currentTime - lastFrameTime;
-
         if (deltaTime >= fpsInterval) {
             lastFrameTime = currentTime - (deltaTime % fpsInterval);
-            update();
-            draw();
-
+            update(); draw();
             frameCount++;
             if (currentTime - lastFpsUpdate >= 1000) {
-                fps = frameCount;
-                frameCount = 0;
-                lastFpsUpdate = currentTime;
-                document.getElementById("fps").innerText = "FPS: " + fps;
+                document.getElementById("fps-display").innerText = "FPS: " + frameCount;
+                frameCount = 0; lastFpsUpdate = currentTime;
             }
         }
     }
