@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pong 1972 - Dynamic Borders</title>
+    <title>Pong - Modo Sayayin Escorpión Dorado</title>
     <style>
         * { touch-action: none; box-sizing: border-box; }
         body { 
@@ -17,24 +17,20 @@
             font-family: 'Courier New', monospace; 
         }
 
-        /* --- CONTENEDOR DINÁMICO --- */
         #game-container { 
             position: relative; 
             border: 2px solid #fff; 
             background: #000;
-            transition: all 0.5s ease; /* Animación suave al estirarse */
+            transition: all 0.5s ease;
         }
 
-        /* Estado cuando el menú está abierto (Estirado) */
         .fullscreen-menu {
             width: 100vw !important;
             height: 100vh !important;
             max-width: 100vw !important;
-            aspect-ratio: auto !important;
-            border-width: 10px !important; /* Bordes más gruesos en menú */
+            border-width: 10px !important;
         }
 
-        /* Estado cuando el juego está activo (Caja original) */
         .game-mode {
             width: 98vw; 
             max-width: 800px; 
@@ -57,27 +53,35 @@
             padding: 20px;
         }
         
-        h1 { font-size: clamp(40px, 12vw, 90px); margin: 0 0 30px 0; text-align: center; }
-        h2 { font-size: clamp(20px, 6vw, 35px); margin-bottom: 20px; }
+        h1 { font-size: clamp(30px, 10vw, 80px); margin: 0 0 20px 0; text-align: center; }
+        h2 { font-size: clamp(18px, 5vw, 25px); margin-bottom: 15px; text-align: center; }
 
         .button-group {
             display: flex;
             flex-direction: column;
             width: 100%;
             align-items: center;
-            gap: 15px;
+            gap: 10px;
         }
 
         button { 
             background: transparent; 
             border: 2px solid #fff; 
             color: #fff; 
-            padding: 15px; 
-            font-size: clamp(16px, 5vw, 22px); 
+            padding: 12px; 
+            font-size: clamp(14px, 4vw, 18px); 
             font-family: inherit; 
             cursor: pointer; 
-            width: 90%; 
-            max-width: 320px;
+            width: 95%; 
+            max-width: 350px;
+        }
+
+        /* Estilo especial para el modo legendario */
+        .btn-legendary {
+            border-color: #ffcc00;
+            color: #ffcc00;
+            font-weight: bold;
+            text-shadow: 0 0 5px #ffcc00;
         }
         
         button:active { background: #fff; color: #000; }
@@ -111,6 +115,7 @@
             <button onclick="startGame(true, 'facil')">FÁCIL</button>
             <button onclick="startGame(true, 'normal')">NORMAL</button>
             <button onclick="startGame(true, 'dificil')">DIFÍCIL</button>
+            <button onclick="startGame(true, 'legendario')" class="btn-legendary">ULTRA LEGENDARIO SAYAYIN ESCORPIÓN DORADO MILENARIO</button>
         </div>
     </div>
 
@@ -133,6 +138,7 @@
     let aiSpeed = 0.05;
     let ballBaseSpeed = 3.5; 
     let ballMaxSpeed = 9; 
+    let acceleration = 0.4;
     
     let lastFrameTime = 0;
     const fpsInterval = 1000 / 60;
@@ -187,19 +193,24 @@
         document.getElementById("mode-menu").classList.add("hidden"); 
         document.getElementById("diff-menu").classList.remove("hidden"); 
     }
-    function startTwoPlayers() { isPvP = true; ballBaseSpeed = 4.5; ballMaxSpeed = 10; startGame(false); }
+    function startTwoPlayers() { isPvP = true; ballBaseSpeed = 4.5; ballMaxSpeed = 10; acceleration = 0.4; startGame(false); }
 
     function startGame(vsAI, diff) {
-        // CAMBIO DE BORDES: De pantalla completa a modo juego
         container.classList.remove("fullscreen-menu");
         container.classList.add("game-mode");
-
         document.querySelectorAll(".overlay").forEach(m => m.classList.add("hidden"));
         gameRunning = true;
+        
         if (vsAI) {
-            if (diff === 'facil') { ballBaseSpeed = 3.5; aiSpeed = 0.04; ballMaxSpeed = 7; }
-            if (diff === 'normal') { ballBaseSpeed = 5; aiSpeed = 0.07; ballMaxSpeed = 11; }
-            if (diff === 'dificil') { ballBaseSpeed = 7; aiSpeed = 0.12; ballMaxSpeed = 15; }
+            if (diff === 'facil') { ballBaseSpeed = 3.5; aiSpeed = 0.04; ballMaxSpeed = 7; acceleration = 0.4; }
+            if (diff === 'normal') { ballBaseSpeed = 5; aiSpeed = 0.07; ballMaxSpeed = 11; acceleration = 0.45; }
+            if (diff === 'dificil') { ballBaseSpeed = 7; aiSpeed = 0.12; ballMaxSpeed = 15; acceleration = 0.5; }
+            if (diff === 'legendario') { 
+                ballBaseSpeed = 12; 
+                aiSpeed = 0.25; 
+                ballMaxSpeed = 22; 
+                acceleration = 0.8; 
+            }
         }
         resetBall();
     }
@@ -214,8 +225,9 @@
 
     function update() {
         if (!gameRunning) return;
-        if (keys['KeyW']) p1.y -= 7; if (keys['KeyS']) p1.y += 7;
-        if (isPvP) { if (keys['ArrowUp']) p2.y -= 7; if (keys['ArrowDown']) p2.y += 7; }
+        let paddleMove = 8;
+        if (keys['KeyW']) p1.y -= paddleMove; if (keys['KeyS']) p1.y += paddleMove;
+        if (isPvP) { if (keys['ArrowUp']) p2.y -= paddleMove; if (keys['ArrowDown']) p2.y += paddleMove; }
         else { p2.y += (ball.y - (p2.y + p2.height / 2)) * aiSpeed; }
         [p1, p2].forEach(p => p.y = Math.max(0, Math.min(canvas.height - p.height, p.y)));
 
@@ -229,7 +241,7 @@
             let cp = (ball.y - (p.y + p.height / 2)) / (p.height / 2);
             let angle = cp * Math.PI / 4;
             let dir = (ball.x < 400) ? 1 : -1;
-            if (ball.speed < ballMaxSpeed) ball.speed += 0.4; 
+            if (ball.speed < ballMaxSpeed) ball.speed += acceleration; 
             ball.velocityX = dir * ball.speed * Math.cos(angle);
             ball.velocityY = ball.speed * Math.sin(angle);
             beep(450, 0.1);
@@ -242,10 +254,8 @@
     function checkEnd(p1Wins) {
         if (p1.score >= 10 || p2.score >= 10) {
             gameRunning = false;
-            // Al terminar, volvemos a poner bordes de pantalla completa
             container.classList.remove("game-mode");
             container.classList.add("fullscreen-menu");
-
             document.getElementById("game-over").classList.remove("hidden");
             document.getElementById("result-text").innerText = isPvP ? (p1Wins ? "GANA J1" : "GANA J2") : (p1Wins ? "¡GANASTE!" : "PERDISTE");
             if (p1Wins) [523, 659, 783, 1046].forEach((n, i) => beep(n, i * 0.1, 0.3));
