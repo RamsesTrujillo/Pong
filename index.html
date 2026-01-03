@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pong 1972 - 60 FPS & Calibrated Physics</title>
+    <style>
+        * { touch-action: none; box-sizing: border-box; }
+        body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; font-family: 'Courier New', monospace; }
+        #game-container { position: relative; border: 2px solid #fff; width: 95vw; max-width: 800px; aspect-ratio: 2 / 1; }
+        canvas { background: #000; display: block; width: 100%; height: 100%; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.9); z-index: 10; color: #fff; }
+        h1 { font-size: 8vw; margin: 10px; }
+        button { background: transparent; border: 2px solid #fff; color: #fff; padding: 10px; font-size: 18px; font-family: inherit; cursor: pointer; margin: 5px; width: 80%; max-width: 300px; }
+        button:active { background: #fff; color: #000; }
+        .hidden { display: none !important; }
+        #fps { position: absolute; top: 5px; left: 5px; color: rgba(255,255,255,0.4); font-size: 12px; z-index: 5; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="fps">FPS: 0</div>
+    <div id="menu" class="overlay">
+        <h1>PONG</h1>
+        <button onclick="showMode()">JUGAR</button>
+    </div>
+    <div id="mode-menu" class="overlay hidden">
+        <h2>MODO DE JUEGO</h2>
+        <button onclick="prepDifficulty()">1 JUGADOR (VS IA)</button>
+        <button onclick="startTwoPlayers()">2 JUGADORES (LOCAL)</button>
+    </div>
+    <div id="diff-menu" class="overlay hidden">
+        <h2>DIFICULTAD IA</h2>
+        <button onclick="startGame(true, 'facil')">FÁCIL (Zen)</button>
+        <button onclick="startGame(true, 'normal')">NORMAL (Equilibrado)</button>
+        <button onclick="startGame(true, 'dificil')">DIFÍCIL (Rápido)</button>
+    </div>
+    <div id="game-over" class="overlay hidden">
+        <h1 id="result-text">¡GANASTE!</h1>
+        <button onclick="location.reload()">REINTENTAR</button>
+    </div>
+    <canvas id="pong" width="800" height="400"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById("pong");
+    const ctx = canvas.getContext("2d");
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    let gameRunning = false;
+    let isPvP = false;
+    let aiSpeed = 0.05; // Ajustado para 60 FPS
+    let ballBaseSpeed = 3.5; 
+    let ballMaxSpeed = 9; 
+    
+    // Configuración 60 FPS
+    let fps = 0;
+    let frameCount = 0;
+    let lastFpsUpdate = 0;
+    let lastFrameTime = 0;
+    const fpsInterval = 1000 / 60;
+
+    const ball = { x: 400, y: 200, radius: 7, speed: 3.5, velocityX: 3.5, velocityY: 0 };
+    const p1 = { x: 10, y: 155, score: 0, width: 12, height: 90 };
+    const p2 = { x: 778, y: 155, score: 0, width: 12, height: 90 };
+
+    const keys = {};
+    window.addEventListener("keydown", e => keys[e.code] = true);
+    window.addEventListener("keyup", e => keys[e.code] = false);
+
+    function movePaddles(e) {
+        if (!gameRunning) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleY = canvas.height / rect.height;
+        const touches = e.touches || [e];
+        for (let t of touches) {
+            const relX = (t.clientX - rect.left) * (canvas.width / rect.width);
+            const relY = (t.clientY - rect.top) * scaleY;
+            if (isPvP) {
+                if (relX < canvas.width / 2) p1.y = relY - p1.height / 2;
+                else p2.y = relY - p2.height / 2;
+            } else { p1.y = relY - p1.height / 2; }
+        }
+    }
+
+    canvas.addEventListener("mousemove", movePaddles);
+    canvas.addEventListener("touchstart", e => { if(audioCtx.state==='suspended') audioCtx.resume(); movePaddles(e); }, {passive: false});
+    canvas.addEventListener("touchmove", e => { movePaddles(e); e.preventDefault(); }, {passive: false});
+
+    function beep(freq, dur, type='square') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + dur);
+    }
+
+    function showMode() { document.getElementById("menu").classList.add("hidden"); document.getElementById("mode-menu").classList.remove("hidden"); }
+    function prepDifficulty() { document.getElementById("mode-menu").classList.add("hidden"); document.getElementById("diff-menu").classList.remove("hidden"); }
+    function startTwoPlayers() { isPvP = true; ballBaseSpeed = 4.5; ballMaxSpeed = 10; startGame(false); }
+
+    function startGame(vsAI, diff) {
+        document.querySelectorAll(".overlay").forEach(m => m.classList.add("hidden"));
+        gameRunning = true;
+        if (vsAI) {
+            // Valores compensados para 60 FPS
+            if (diff === 'facil') { ballBaseSpeed = 3.5; aiSpeed = 0.04; ballMaxSpeed = 7; }
+            if (diff === 'normal') { ballBaseSpeed = 5; aiSpeed = 0.07; ballMaxSpeed = 11; }
+            if (diff === 'dificil') { ballBaseSpeed = 7; aiSpeed = 0.12; ballMaxSpeed = 15; }
+        }
+        resetBall();
+    }
+
+    function resetBall() {
+        ball.x = 400; ball.y = 200;
+        ball.speed = ballBaseSpeed;
+        let dir = (Math.random() > 0.5 ? 1 : -1);
+        ball.velocityX = dir * ball.speed;
+        ball.velocityY = (Math.random() - 0.5) * ball.speed;
+    }
+
+    function update() {
+        if (!gameRunning) return;
+        // Velocidad de paletas ajustada a 60 FPS
+        if (keys['KeyW']) p1.y -= 7; if (keys['KeyS']) p1.y += 7;
+        if (isPvP) { if (keys['ArrowUp']) p2.y -= 7; if (keys['ArrowDown']) p2.y += 7; }
+        else { p2.y += (ball.y - (p2.y + p2.height / 2)) * aiSpeed; }
+        [p1, p2].forEach(p => p.y = Math.max(0, Math.min(canvas.height - p.height, p.y)));
+
+        ball.x += ball.velocityX;
+        ball.y += ball.velocityY;
+
+        if (ball.y <= 0 || ball.y >= 400) { ball.velocityY *= -1; beep(150, 0.1); }
+
+        let p = (ball.x < 400) ? p1 : p2;
+        if (ball.x > p.x && ball.x < p.x + p.width && ball.y > p.y && ball.y < p.y + p.height) {
+            let cp = (ball.y - (p.y + p.height / 2)) / (p.height / 2);
+            let angle = cp * Math.PI / 4;
+            let dir = (ball.x < 400) ? 1 : -1;
+            
+            // Aceleración ajustada para 60 FPS (un poco más alta para compensar el limitador)
+            if (ball.speed < ballMaxSpeed) ball.speed += 0.4; 
+            
+            ball.velocityX = dir * ball.speed * Math.cos(angle);
+            ball.velocityY = ball.speed * Math.sin(angle);
+            beep(450, 0.1);
+        }
+
+        if (ball.x < 0) { p2.score++; checkEnd(false); }
+        if (ball.x > 800) { p1.score++; checkEnd(true); }
+    }
+
+    function checkEnd(p1Wins) {
+        if (p1.score >= 10 || p2.score >= 10) {
+            gameRunning = false;
+            document.getElementById("game-over").classList.remove("hidden");
+            document.getElementById("result-text").innerText = isPvP ? (p1Wins ? "GANA J1" : "GANA J2") : (p1Wins ? "¡GANASTE!" : "PERDISTE");
+            if (p1Wins) [523, 659, 783, 1046].forEach((n, i) => beep(n, i * 0.1, 0.3));
+            else [300, 250, 200].forEach((n, i) => beep(n, i * 0.2, 0.5, 'sawtooth'));
+        } else { resetBall(); }
+    }
+
+    function draw() {
+        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 800, 400);
+        ctx.fillStyle = "#fff"; ctx.setLineDash([10, 10]);
+        ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 400); ctx.stroke();
+        ctx.font = "60px monospace"; ctx.fillText(p1.score, 200, 80); ctx.fillText(p2.score, 550, 80);
+        ctx.fillRect(p1.x, p1.y, p1.width, p1.height); ctx.fillRect(p2.x, p2.y, p2.width, p2.height);
+        ctx.fillRect(ball.x - 5, ball.y - 5, 10, 10);
+    }
+
+    function loop(currentTime) {
+        requestAnimationFrame(loop);
+        const deltaTime = currentTime - lastFrameTime;
+
+        if (deltaTime >= fpsInterval) {
+            lastFrameTime = currentTime - (deltaTime % fpsInterval);
+            update();
+            draw();
+
+            frameCount++;
+            if (currentTime - lastFpsUpdate >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastFpsUpdate = currentTime;
+                document.getElementById("fps").innerText = "FPS: " + fps;
+            }
+        }
+    }
+    requestAnimationFrame(loop);
+</script>
+</body>
+</html>
